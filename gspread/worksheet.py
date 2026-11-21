@@ -30,6 +30,8 @@ from typing import (
 )
 
 from .cell import Cell
+from .csv_import import DEFAULT_BATCH_SIZE, CsvImportResult
+from .csv_import import import_csv as _import_csv
 from .exceptions import GSpreadException
 from .http_client import DefaultSerializerType, HTTPClient, ParamsType
 from .urls import WORKSHEET_DRIVE_URL
@@ -2393,6 +2395,74 @@ class Worksheet:
         .. versionadded:: 6.3.0
         """
         return self.delete_dimension_blocks(Dimension.cols, blocks)
+
+    def import_csv(
+        self,
+        data: Union[str, bytes, bytearray],
+        range_name: Optional[str] = None,
+        batch_size: int = DEFAULT_BATCH_SIZE,
+    ) -> "CsvImportResult":
+        """Import UTF-8 CSV data into a bounded A1 range of this worksheet.
+
+        The worksheet itself is preserved: its id, its formatting, the
+        cells outside the data area and every other worksheet of the
+        spreadsheet are left untouched.
+
+        The payload is parsed with normal CSV rules first, then staged in a
+        temporary worksheet and finally committed with a single atomic
+        ``batchUpdate`` that clears the data area, copies the staged values
+        into it and deletes the temporary worksheet. Old values that do not
+        fit under the new data are cleared as well, which also removes the
+        leftovers of a previously larger area. When no cell is ever written,
+        nothing is changed.
+
+        Values are written with ``RAW`` input, so leading zeros are kept,
+        quoted fields may span several lines and text starting with ``=``
+        is stored literally instead of being interpreted as a formula.
+
+        :param data: CSV payload as ``str`` or UTF-8 ``bytes``
+            (``bytearray`` and file-like objects are accepted too). An
+            optional UTF-8 BOM is discarded.
+        :param range_name: (optional) bounded A1 range that receives the
+            data, for example ``"B2:F20"`` or ``"Sheet1!B2:F20"``. Defaults
+            to ``A1`` with a data area exactly the size of the CSV. An
+            explicit range must be bounded (``"A1:F"`` is rejected) and
+            must fit inside the worksheet grid. The CSV may not exceed it:
+            extra records or extra fields raise
+            :class:`~gspread.exceptions.CsvTooLargeError`.
+        :param batch_size: (optional) number of CSV logical records written
+            to the temporary worksheet per API call. Defaults to 1000.
+        :returns: a :class:`~gspread.csv_import.CsvImportResult` with the
+            number of rows and columns that were copied.
+        :raises ~gspread.exceptions.CsvParseError: the payload is empty,
+            is not valid UTF-8 or is not valid CSV. The worksheet is not
+            modified.
+        :raises ~gspread.exceptions.CsvTooLargeError: the payload does not
+            fit in the data area. The worksheet is not modified.
+        :raises ValueError: the data area is unbounded (for example
+            ``"A1:F"``), belongs to another worksheet or lies outside the
+            worksheet grid. The worksheet is not modified.
+        :raises ~gspread.exceptions.CsvStagingError: the data could not be
+            staged in the temporary worksheet. The worksheet is not
+            modified.
+        :raises ~gspread.exceptions.CsvCommitError: the final batch was
+            explicitly rejected by the API. The worksheet is not modified.
+        :raises ~gspread.exceptions.CsvImportOutcomeUnknown: the outcome of
+            the final batch is uncertain, for example because the
+            connection dropped before the response was received. The
+            worksheet must not be considered successfully updated.
+
+        Example::
+
+            # Replace the values of B2:D10 with the content of a CSV file.
+            # Formatting, ids, other sheets and cells outside B2:D10 are
+            # preserved.
+            with open("data.csv", "rb") as csv_file:
+                worksheet.import_csv(csv_file.read(), "B2:D10")
+
+        .. versionadded:: 6.3.0
+        """
+        return _import_csv(self, data, range_name=range_name, batch_size=batch_size)
 
     def clear(self) -> JSONResponse:
         """Clears all cells in the worksheet."""

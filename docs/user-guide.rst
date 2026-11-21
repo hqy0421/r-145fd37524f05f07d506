@@ -327,6 +327,45 @@ Clear the entire worksheet:
 
    worksheet.clear()
 
+Import a CSV File Into a Range
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:meth:`~gspread.worksheet.Worksheet.import_csv` loads a UTF-8 CSV payload
+into a bounded A1 data area of an existing worksheet. Unlike
+:meth:`~gspread.Client.import_csv`, it preserves the worksheet's id, its
+formatting, the cells outside the data area and every other worksheet of
+the spreadsheet.
+
+.. code:: python
+
+   with open("data.csv", "rb") as csv_file:
+       result = worksheet.import_csv(csv_file.read(), "B2:F20")
+
+   print(result.rows, result.columns)  # how many rows/columns were copied
+
+The payload is parsed locally first, so a malformed CSV changes nothing.
+Fields are written as text, which keeps leading zeros, quoted multi-line
+fields and text starting with ``=`` literal; the data area keeps its
+existing formatting. The CSV may not exceed the data area: extra records
+or extra fields raise :class:`~gspread.exceptions.CsvTooLargeError`
+before any data is written.
+
+The import is then staged in a temporary worksheet, in batches of
+``batch_size`` logical records, and committed with one atomic
+``batchUpdate`` request that clears the data area, copies the staged
+values and deletes the temporary worksheet. Old values that do not fit
+under the new data are cleared too, so a previously larger area leaves no
+leftovers.
+
+Any parse, staging or explicit rejection error leaves the worksheet
+untouched. If the outcome of the final, atomic request cannot be
+determined (for example the connection dropped before the response was
+read), :class:`~gspread.exceptions.CsvImportOutcomeUnknown` is raised and
+the import must not be reported as a success.
+
+When no ``range_name`` is given, the payload is imported at ``A1`` over a
+data area that is exactly the size of the CSV.
+
 Cell Object
 ~~~~~~~~~~~
 

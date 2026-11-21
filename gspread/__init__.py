@@ -14,7 +14,14 @@ from .auth import (
 )
 from .cell import Cell
 from .client import Client
+from .csv_import import CsvImportResult, import_csv, parse_csv
 from .exceptions import (
+    CsvCommitError,
+    CsvImportError,
+    CsvImportOutcomeUnknown,
+    CsvParseError,
+    CsvStagingError,
+    CsvTooLargeError,
     GSpreadException,
     IncorrectCellLabel,
     NoValidUrlKeyFound,
@@ -55,11 +62,22 @@ __all__ = [
     "ValueRange",
 
     # from .exceptions
+    "CsvCommitError",
+    "CsvImportError",
+    "CsvImportOutcomeUnknown",
+    "CsvParseError",
+    "CsvStagingError",
+    "CsvTooLargeError",
     "GSpreadException",
     "IncorrectCellLabel",
     "NoValidUrlKeyFound",
     "SpreadsheetNotFound",
     "WorksheetNotFound",
+
+    # from .csv_import
+    "CsvImportResult",
+    "import_csv",
+    "parse_csv",
 
     # full module imports
     "urls",

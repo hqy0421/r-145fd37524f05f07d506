@@ -9,5 +9,6 @@ API Reference
    client
    http_client
    models/index
+   csv_import
    utils
    exceptions
